@@ -12,6 +12,9 @@ Implement and test the six agreed class responsibilities and the smallest create
 - [ ] **70–75 min — Ownership:** confirm meaningful code commits came from the authors' own GitHub accounts.
 
 ## Owners and partner/reviewer tasks
+
+Planned assignments only: implementation work here is not evidence of a member's own-account authorship. Tehilla/Cheela review, all assigned-member ownership, and member-owned commits are still pending; the agent commit is not attributed to either member.
+
 - [ ] Tehilla Chiwama (2410014) owns `Resident` submission fields/validation; Cheela Mulilo (2410032) reviews the behavior tests.
 - [ ] Bright Mwansa (2410010) owns `MaintenanceStaff` and valid status transitions; Blessings Syansowa (2421035) reviews.
 - [ ] Mwenya Simpungwe (2410013) owns `RequestService` create/find and the defined custom-exception throw path; Tehilla Chiwama (2410014) reviews.
