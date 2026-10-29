@@ -29,4 +29,4 @@ A resident submits a request in a web form. The Java/Javalin backend validates a
 2. Bright Mwansa — 2410010
 3. Mwenya Simpungwe — 2410013
 4. Cheela Mulilo — 2410032
-5. **PENDING — fifth student's name and student number to be added (not yet provided).**
+5. Blessings Syansowa — 2410032
