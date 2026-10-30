@@ -1,0 +1,11 @@
+vibecoders101/example/service/RequestNotFoundException.class
+vibecoders101/example/Main.class
+vibecoders101/example/repository/RequestRepository.class
+vibecoders101/example/domain/MaintenanceRequest.class
+vibecoders101/example/service/RequestService.class
+vibecoders101/example/domain/MaintenanceStaff.class
+vibecoders101/example/domain/Resident.class
+vibecoders101/example/service/InvalidStatusTransitionException.class
+vibecoders101/example/repository/InMemoryRequestRepository.class
+vibecoders101/example/service/InvalidRequestException.class
+vibecoders101/example/domain/User.class

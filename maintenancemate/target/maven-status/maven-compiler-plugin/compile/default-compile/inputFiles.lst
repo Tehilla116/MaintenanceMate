@@ -1,0 +1,11 @@
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/Main.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/domain/MaintenanceRequest.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/domain/MaintenanceStaff.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/domain/Resident.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/domain/User.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/repository/InMemoryRequestRepository.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/repository/RequestRepository.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/service/InvalidRequestException.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/service/InvalidStatusTransitionException.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/service/RequestNotFoundException.java
+/Users/tehillachiwama/projects/MaintenanceMate/maintenancemate/src/main/java/vibecoders101/example/service/RequestService.java
