@@ -24,6 +24,51 @@ Open `http://localhost:7070/`. The page is served by Javalin from the applicatio
 
 The page and API are local demo software only. There is no login, authentication, authorization, or real identity handling. Use synthetic data only. The app persists to `./data/maintenancemate.db`; do not use an existing database with real-user information.
 
+### Beginner walkthrough: one POST request from HTTP to SQLite
+
+Start the application as shown above, then submit a request from the browser page or with `curl`:
+
+```sh
+curl -i -X POST http://localhost:7070/api/requests \
+  -H 'Content-Type: application/json' \
+  -d '{"hostelBlock":"Maple Hostel, Block B","roomNumber":"A-12","description":"The sink tap is leaking."}'
+```
+
+The API returns `201 Created` and JSON shaped like this. The reference is generated for each request, so your value will differ.
+
+```json
+{
+  "reference": "MM-012345ABCDEF",
+  "hostelBlock": "Maple Hostel, Block B",
+  "roomNumber": "A-12",
+  "description": "The sink tap is leaking.",
+  "status": "Received",
+  "assignedStaffId": null,
+  "createdAt": "2026-10-30T09:15:30.123Z",
+  "updatedAt": "2026-10-30T09:15:30.123Z"
+}
+```
+
+Follow the request through the code:
+
+1. `Main` registers `POST /api/requests`. Its `createRequest` method reads the JSON body, rejects unknown or missing fields, and reads the three strings.
+2. `RequestService.create` trims and validates the values, builds a demo `Resident` and a `MaintenanceRequest`, generates a reference, and asks the repository to save the request.
+3. `RequestRepository` is the interface the service depends on. The running app uses `SqliteRequestRepository`, whose `save` method uses a JDBC `PreparedStatement` to insert one row into the `maintenance_requests` table in `./data/maintenancemate.db`. The repository also turns database rows back into objects when reading.
+4. `Main.requestRepresentation` turns the saved object into the JSON response.
+
+The path is: `Main` (HTTP and JSON) -> `RequestService` (application rules) -> `RequestRepository` (storage interface) -> `SqliteRequestRepository` (JDBC and SQL) -> SQLite file.
+
+### OOP concepts in this project
+
+- **Encapsulation**: `MaintenanceRequest`, `Resident`, and `MaintenanceStaff` keep their fields private and expose getters. Their constructors validate input.
+- **Abstraction**: `RequestRepository` is an interface. `RequestService` calls methods such as `save` and `findByReference` without knowing whether storage is in memory or SQLite.
+- **Inheritance**: `Resident` and `MaintenanceStaff` extend the abstract `User` class and reuse its user ID and display-name behavior.
+- **Polymorphism**: `Resident` and `MaintenanceStaff` override `User.canAccess` differently. `RequestService` can also work with either `InMemoryRequestRepository` or `SqliteRequestRepository` through the same interface.
+- **Composition and dependency injection**: `RequestService` receives a `RequestRepository` and a `Clock` in its constructor instead of creating them itself.
+- **Custom exceptions**: `InvalidRequestException`, `RequestNotFoundException`, and the other exception classes describe failures that `Main` maps to HTTP error responses.
+
+This is a classroom demo, not an authentication system. The API has no login or authorization and does not verify who sent a request. The browser page writes API values with `textContent`, so returned text is displayed as text instead of being executed as HTML.
+
 ### Routes
 
 - `GET /` — serves the browser workflow page as `text/html` from the Java classpath.

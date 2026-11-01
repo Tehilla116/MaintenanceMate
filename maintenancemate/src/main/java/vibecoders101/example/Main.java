@@ -1,9 +1,11 @@
 package vibecoders101.example;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -17,10 +19,15 @@ import vibecoders101.example.service.RequestNotFoundException;
 import vibecoders101.example.service.RequestService;
 import vibecoders101.example.service.StorageUnavailableException;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,73 +73,103 @@ public class Main {
                 error(context, 500, "INTERNAL_ERROR", "An unexpected error occurred.", Map.of());
             });
 
-            config.routes.get("/", context -> {
-                try (var page = Main.class.getResourceAsStream("/vibecoders101/example/index.html")) {
-                    if (page == null) {
-                        context.status(500).result("Browser workflow page is unavailable.");
-                        return;
-                    }
-                    context.contentType("text/html; charset=utf-8").result(page.readAllBytes());
-                } catch (java.io.IOException exception) {
-                    throw new java.io.UncheckedIOException(exception);
-                }
-            });
-            config.routes.get("/api/health", context -> {
-                service.checkStorageHealth();
-                context.json(Map.of("status", "ok"));
-            });
-            config.routes.post("/api/requests", context -> {
-                JsonNode json = parseObject(context.body());
-                requireOnlyFields(json, List.of("hostelBlock", "roomNumber", "description"));
-                String hostel = requiredString(json, "hostelBlock");
-                String room = requiredString(json, "roomNumber");
-                String description = requiredString(json, "description");
-                MaintenanceRequest created = service.create(hostel, room, description);
-                context.status(201).json(requestRepresentation(created));
-            });
-            config.routes.get("/api/requests", context -> {
-                List<Map<String, Object>> requests = service.list().stream().map(Main::requestRepresentation).toList();
-                context.json(Map.of("requests", requests, "count", requests.size()));
-            });
-            config.routes.get("/api/requests/{reference}", context -> {
-                MaintenanceRequest request = service.requireByReference(context.pathParam("reference"));
-                context.json(requestRepresentation(request));
-            });
-            config.routes.put("/api/requests/{reference}/status", context -> {
-                JsonNode json = parseObject(context.body());
-                requireOnlyFields(json, List.of("status"));
-                MaintenanceRequest updated = service.updateStatus(context.pathParam("reference"), requiredString(json, "status"));
-                context.json(requestRepresentation(updated));
-            });
+            config.routes.get("/", context -> servePage(context));
+            config.routes.get("/api/health", context -> checkHealth(service, context));
+            config.routes.post("/api/requests", context -> createRequest(service, context));
+            config.routes.get("/api/requests", context -> listRequests(service, context));
+            config.routes.get("/api/requests/{reference}", context -> getRequest(service, context));
+            config.routes.put("/api/requests/{reference}/status", context -> updateRequestStatus(service, context));
         });
         return app;
     }
 
+    private static void servePage(Context context) {
+        InputStream page = Main.class.getResourceAsStream("/vibecoders101/example/index.html");
+        if (page == null) {
+            context.status(500).result("Browser workflow page is unavailable.");
+            return;
+        }
+        try (InputStream html = page) {
+            context.contentType("text/html; charset=utf-8").result(html.readAllBytes());
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static void checkHealth(RequestService service, Context context) {
+        service.checkStorageHealth();
+        context.json(Map.of("status", "ok"));
+    }
+
+    private static void createRequest(RequestService service, Context context) throws JsonProcessingException {
+        JsonNode json = parseObject(context.body());
+        requireOnlyFields(json, List.of("hostelBlock", "roomNumber", "description"));
+        String hostelBlock = requiredString(json, "hostelBlock");
+        String roomNumber = requiredString(json, "roomNumber");
+        String description = requiredString(json, "description");
+        MaintenanceRequest created = service.create(hostelBlock, roomNumber, description);
+        context.status(201).json(requestRepresentation(created));
+    }
+
+    private static void listRequests(RequestService service, Context context) {
+        List<MaintenanceRequest> requests = service.list();
+        List<Map<String, Object>> representations = new ArrayList<>();
+        for (MaintenanceRequest request : requests) {
+            representations.add(requestRepresentation(request));
+        }
+        context.json(Map.of("requests", representations, "count", representations.size()));
+    }
+
+    private static void getRequest(RequestService service, Context context) {
+        String reference = context.pathParam("reference");
+        MaintenanceRequest request = service.requireByReference(reference);
+        context.json(requestRepresentation(request));
+    }
+
+    private static void updateRequestStatus(RequestService service, Context context) throws JsonProcessingException {
+        JsonNode json = parseObject(context.body());
+        requireOnlyFields(json, List.of("status"));
+        String reference = context.pathParam("reference");
+        String status = requiredString(json, "status");
+        MaintenanceRequest updated = service.updateStatus(reference, status);
+        context.json(requestRepresentation(updated));
+    }
+
     private static JsonNode parseObject(String body) throws JsonProcessingException {
         if (body == null || body.isBlank()) {
-            throw new com.fasterxml.jackson.core.JsonParseException(null, "Request body must be valid JSON.");
+            throw new JsonParseException(null, "Request body must be valid JSON.");
         }
         try {
             JsonNode json = MAPPER.readTree(body);
-            if (json == null || !json.isObject()) throw new InvalidRequestException("Request body must be a JSON object");
+            if (json == null || !json.isObject()) {
+                throw new InvalidRequestException("Request body must be a JSON object");
+            }
             return json;
-        } catch (com.fasterxml.jackson.databind.exc.MismatchedInputException exception) {
-            throw new com.fasterxml.jackson.core.JsonParseException(null, "Request body must be valid JSON.", exception);
+        } catch (MismatchedInputException exception) {
+            throw new JsonParseException(null, "Request body must be valid JSON.", exception);
         }
     }
 
     private static void requireOnlyFields(JsonNode json, List<String> fields) {
-        json.fieldNames().forEachRemaining(field -> {
-            if (!fields.contains(field)) throw new InvalidRequestException(field, "Unknown field.");
-        });
+        Iterator<String> fieldNames = json.fieldNames();
+        while (fieldNames.hasNext()) {
+            String field = fieldNames.next();
+            if (!fields.contains(field)) {
+                throw new InvalidRequestException(field, "Unknown field.");
+            }
+        }
         for (String field : fields) {
-            if (!json.has(field)) throw new InvalidRequestException(field, "This field is required.");
+            if (!json.has(field)) {
+                throw new InvalidRequestException(field, "This field is required.");
+            }
         }
     }
 
     private static String requiredString(JsonNode json, String field) {
         JsonNode value = json.get(field);
-        if (value == null || !value.isTextual()) throw new InvalidRequestException(field, "Must be a string.");
+        if (value == null || !value.isTextual()) {
+            throw new InvalidRequestException(field, "Must be a string.");
+        }
         return value.textValue();
     }
 
@@ -143,7 +180,11 @@ public class Main {
         result.put("roomNumber", request.getRoomNumber());
         result.put("description", request.getDescription());
         result.put("status", request.getStatus());
-        result.put("assignedStaffId", request.getAssignedStaff() == null ? null : request.getAssignedStaff().getUserId());
+        String assignedStaffId = null;
+        if (request.getAssignedStaff() != null) {
+            assignedStaffId = request.getAssignedStaff().getUserId();
+        }
+        result.put("assignedStaffId", assignedStaffId);
         result.put("createdAt", TIMESTAMP_FORMAT.format(request.getCreatedAt()));
         result.put("updatedAt", TIMESTAMP_FORMAT.format(request.getUpdatedAt()));
         return result;

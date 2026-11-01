@@ -11,8 +11,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 public class RequestService {
@@ -20,19 +22,19 @@ public class RequestService {
     private static final String[] STATUSES = {"Received", "In Progress", "Resolved"};
     private final RequestRepository repository;
     private final Clock clock;
-    private final java.util.function.Supplier<String> referenceGenerator;
+    private final Supplier<String> referenceGenerator;
 
     public RequestService() { this(new InMemoryRequestRepository(), Clock.systemUTC()); }
     public RequestService(Clock clock) { this(new InMemoryRequestRepository(), clock); }
 
     public RequestService(RequestRepository repository, Clock clock) {
-        this(repository, clock, RequestService::newReference);
+        this(repository, clock, () -> newReference());
     }
 
-    public RequestService(RequestRepository repository, Clock clock, java.util.function.Supplier<String> referenceGenerator) {
-        this.repository = java.util.Objects.requireNonNull(repository, "repository is required");
-        this.clock = java.util.Objects.requireNonNull(clock, "clock is required");
-        this.referenceGenerator = java.util.Objects.requireNonNull(referenceGenerator, "referenceGenerator is required");
+    public RequestService(RequestRepository repository, Clock clock, Supplier<String> referenceGenerator) {
+        this.repository = Objects.requireNonNull(repository, "repository is required");
+        this.clock = Objects.requireNonNull(clock, "clock is required");
+        this.referenceGenerator = Objects.requireNonNull(referenceGenerator, "referenceGenerator is required");
     }
 
     public MaintenanceRequest create(String hostelBlock, String roomNumber, String description) {
@@ -48,14 +50,18 @@ public class RequestService {
                 repository.save(request);
                 return request;
             } catch (DuplicateReferenceException collision) {
-                if (attempt == 2) throw new ReferenceGenerationException(collision);
+                if (attempt == 2) {
+                    throw new ReferenceGenerationException(collision);
+                }
             }
         }
         throw new ReferenceGenerationException(null);
     }
 
     public MaintenanceRequest create(Resident resident, String description) {
-        if (resident == null) throw new InvalidRequestException("resident is required");
+        if (resident == null) {
+            throw new InvalidRequestException("resident is required");
+        }
         return create(resident.getHostelBlock(), resident.getRoomNumber(), description);
     }
 
@@ -65,39 +71,66 @@ public class RequestService {
     }
 
     public MaintenanceRequest requireByReference(String reference) {
-        return findByReference(reference).orElseThrow(() -> new RequestNotFoundException(reference));
+        Optional<MaintenanceRequest> request = findByReference(reference);
+        if (request.isEmpty()) {
+            throw new RequestNotFoundException(reference);
+        }
+        return request.get();
     }
 
     public List<MaintenanceRequest> list() { return repository.list(); }
 
     public MaintenanceRequest updateStatus(String reference, String nextStatus) {
         validateReference(reference);
-        if (indexOf(nextStatus) < 0) throw new InvalidRequestException("status", "Must be one of Received, In Progress, or Resolved.");
-        MaintenanceRequest current = repository.findByReference(reference)
-                .orElseThrow(() -> new RequestNotFoundException(reference));
+        if (indexOf(nextStatus) < 0) {
+            throw new InvalidRequestException("status", "Must be one of Received, In Progress, or Resolved.");
+        }
+        Optional<MaintenanceRequest> found = repository.findByReference(reference);
+        if (found.isEmpty()) {
+            throw new RequestNotFoundException(reference);
+        }
+        MaintenanceRequest current = found.get();
         int currentIndex = indexOf(current.getStatus());
         if (indexOf(nextStatus) != currentIndex + 1) {
             throw new InvalidStatusTransitionException("status must advance one step from Received to In Progress to Resolved");
         }
         Instant updatedAt = millisecond(clock.instant());
         Instant earliest = current.getUpdatedAt().plus(1, ChronoUnit.MILLIS);
-        if (updatedAt.isBefore(earliest)) updatedAt = earliest;
-        if (!repository.updateStatus(reference, current.getStatus(), nextStatus, updatedAt)) {
-            if (repository.findByReference(reference).isEmpty()) throw new RequestNotFoundException(reference);
+        if (updatedAt.isBefore(earliest)) {
+            updatedAt = earliest;
+        }
+        boolean updated = repository.updateStatus(reference, current.getStatus(), nextStatus, updatedAt);
+        if (!updated) {
+            Optional<MaintenanceRequest> currentRequest = repository.findByReference(reference);
+            if (currentRequest.isEmpty()) {
+                throw new RequestNotFoundException(reference);
+            }
             throw new InvalidStatusTransitionException("request status changed before this update could be applied");
         }
-        return repository.findByReference(reference).orElseThrow(() -> new RequestNotFoundException(reference));
+        Optional<MaintenanceRequest> updatedRequest = repository.findByReference(reference);
+        if (updatedRequest.isEmpty()) {
+            throw new RequestNotFoundException(reference);
+        }
+        return updatedRequest.get();
     }
 
     public void checkStorageHealth() {
-        if (!repository.checkHealth()) throw new StorageUnavailableException("SQLite storage is unavailable", null);
+        if (!repository.checkHealth()) {
+            throw new StorageUnavailableException("SQLite storage is unavailable", null);
+        }
     }
 
     private static String validateField(String value, String field, int max) {
-        if (value == null) throw new InvalidRequestException(field, "Must not be blank.");
+        if (value == null) {
+            throw new InvalidRequestException(field, "Must not be blank.");
+        }
         String trimmed = value.trim();
-        if (trimmed.isEmpty()) throw new InvalidRequestException(field, "Must not be blank.");
-        if (trimmed.length() > max) throw new InvalidRequestException(field, "Must contain at most " + max + " characters.");
+        if (trimmed.isEmpty()) {
+            throw new InvalidRequestException(field, "Must not be blank.");
+        }
+        if (trimmed.length() > max) {
+            throw new InvalidRequestException(field, "Must contain at most " + max + " characters.");
+        }
         return trimmed;
     }
 
@@ -107,15 +140,24 @@ public class RequestService {
         }
     }
 
-    private static Instant millisecond(Instant instant) { return instant.truncatedTo(ChronoUnit.MILLIS); }
+    private static Instant millisecond(Instant instant) {
+        return instant.truncatedTo(ChronoUnit.MILLIS);
+    }
 
     private static String newReference() {
-        return "MM-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+        String randomPart = UUID.randomUUID().toString().replace("-", "");
+        return "MM-" + randomPart.substring(0, 12).toUpperCase(Locale.ROOT);
     }
 
     private static int indexOf(String value) {
-        if (value == null) return -1;
-        for (int index = 0; index < STATUSES.length; index++) if (STATUSES[index].equals(value)) return index;
+        if (value == null) {
+            return -1;
+        }
+        for (int index = 0; index < STATUSES.length; index++) {
+            if (STATUSES[index].equals(value)) {
+                return index;
+            }
+        }
         return -1;
     }
 }
