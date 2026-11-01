@@ -10,10 +10,23 @@ mvn -f maintenancemate/pom.xml package
 mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
 ```
 
-The API listens on port `7070` by default. Set `-Dport=8080` before the exec goal to select another port. The application creates `./data/maintenancemate.db` on startup and persists requests in SQLite. Do not add real personal data; this is a local classroom demonstration.
+The application listens on port `7070` by default. Set `-Dport=8080` before the exec goal to select another port. The application creates `./data/maintenancemate.db` on startup and persists requests in SQLite. Do not add real personal data; this is a local classroom demonstration.
+
+### Browser workflow demo
+
+Run the existing Maven command from the repository root:
+
+```sh
+mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
+```
+
+Open `http://localhost:7070/`. The page is served by Javalin from the application classpath and offers three plain workflows: submit a synthetic resident request, load the request list and advance status as demo staff, then find a request by its reference. A newly submitted reference is also filled into the lookup form. Status transitions are limited to `Received → In Progress → Resolved`; errors from the API are shown on the page.
+
+The page and API are local demo software only. There is no login, authentication, authorization, or real identity handling. Use synthetic data only. The app persists to `./data/maintenancemate.db`; do not use an existing database with real-user information.
 
 ### Routes
 
+- `GET /` — serves the browser workflow page as `text/html` from the Java classpath.
 - `POST /api/requests` — JSON `{ "hostelBlock": "Maple Hostel, Block B", "roomNumber": "A-12", "description": "The sink tap is leaking." }`; returns `201` and the complete request representation.
 - `GET /api/requests` — returns `{ "requests": [...], "count": n }`.
 - `GET /api/requests/{reference}` — returns one request, or `404` if a valid reference is absent.

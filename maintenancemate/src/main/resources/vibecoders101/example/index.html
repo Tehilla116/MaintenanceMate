@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Local synthetic-data workflow demo for Maintenance Mate">
+  <title>Maintenance Mate — local demo</title>
+  <style>
+    :root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #17212b; background: #f3f6f8; }
+    * { box-sizing: border-box; }
+    body { max-width: 900px; margin: 0 auto; padding: 1.25rem; }
+    header, section { background: #fff; border: 1px solid #d7e0e6; border-radius: .6rem; padding: 1rem 1.25rem; margin: 0 0 1rem; }
+    h1, h2 { line-height: 1.2; }
+    h1 { margin-top: 0; }
+    label { display: block; font-weight: 650; margin: .8rem 0 .2rem; }
+    input, textarea, button { font: inherit; }
+    input, textarea { width: 100%; max-width: 38rem; padding: .55rem; border: 1px solid #8797a4; border-radius: .3rem; }
+    textarea { min-height: 6rem; }
+    button { margin-top: .8rem; padding: .5rem .8rem; border: 0; border-radius: .3rem; background: #125c77; color: white; cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
+    button:disabled { background: #687782; cursor: not-allowed; }
+    .notice { min-height: 1.5em; margin: .6rem 0 0; }
+    .error { color: #a11b1b; font-weight: 650; }
+    .success { color: #185c36; }
+    .request-list { padding-left: 1.25rem; }
+    .request-list li { border-top: 1px solid #d7e0e6; padding: .6rem 0; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Maintenance Mate</h1>
+    <p>Local classroom workflow demo. Use synthetic examples only. This page and API have no login, authentication, or authorization.</p>
+  </header>
+
+  <main>
+    <section aria-labelledby="resident-heading">
+      <h2 id="resident-heading">Demo resident: submit a request</h2>
+      <form id="resident-form">
+        <label for="hostel-block">Hostel block</label>
+        <input id="hostel-block" name="hostelBlock" required maxlength="100" autocomplete="off" placeholder="Example Hall, Block C">
+        <label for="room-number">Room number</label>
+        <input id="room-number" name="roomNumber" required maxlength="30" autocomplete="off" placeholder="C-12">
+        <label for="description">What needs maintenance?</label>
+        <textarea id="description" name="description" required maxlength="1000" placeholder="Example: the sink tap is leaking."></textarea>
+        <button type="submit">Submit request</button>
+      </form>
+      <p id="resident-error" class="notice error" role="alert"></p>
+      <p id="created-result" class="notice success" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-labelledby="staff-heading">
+      <h2 id="staff-heading">Demo maintenance staff: requests</h2>
+      <p>Load the saved request list, then advance a request one allowed status at a time.</p>
+      <button id="staff-load" type="button">Load requests</button>
+      <p id="staff-error" class="notice error" role="alert"></p>
+      <ul id="request-list" class="request-list" aria-live="polite"></ul>
+    </section>
+
+    <section aria-labelledby="lookup-heading">
+      <h2 id="lookup-heading">Demo resident: look up by reference</h2>
+      <form id="lookup-form">
+        <label for="reference">Request reference</label>
+        <input id="reference" name="reference" required autocomplete="off" placeholder="MM-012345ABCDEF">
+        <button type="submit">Look up request</button>
+      </form>
+      <p id="lookup-error" class="notice error" role="alert"></p>
+      <p id="lookup-result" class="notice" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const residentForm = document.getElementById("resident-form");
+      const residentError = document.getElementById("resident-error");
+      const createdResult = document.getElementById("created-result");
+      const staffLoad = document.getElementById("staff-load");
+      const staffError = document.getElementById("staff-error");
+      const requestList = document.getElementById("request-list");
+      const lookupForm = document.getElementById("lookup-form");
+      const lookupError = document.getElementById("lookup-error");
+      const lookupResult = document.getElementById("lookup-result");
+
+      async function api(path, options) {
+        const response = await fetch(path, options);
+        const body = await response.json();
+        if (!response.ok) {
+          const apiError = body && body.error;
+          const message = apiError && apiError.message ? apiError.message : `Request failed (${response.status}).`;
+          const fields = apiError && apiError.details && apiError.details.fields;
+          const fieldMessage = fields && Object.entries(fields).map(([field, detail]) => `${field}: ${detail}`).join("; ");
+          throw new Error(fieldMessage ? `${message} ${fieldMessage}` : message);
+        }
+        return body;
+      }
+
+      function showRequest(target, request) {
+        target.textContent = `Reference: ${request.reference} — Status: ${request.status}`;
+      }
+
+      residentForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        residentError.textContent = "";
+        createdResult.textContent = "";
+        const values = new FormData(residentForm);
+        try {
+          const request = await api("/api/requests", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hostelBlock: values.get("hostelBlock"),
+              roomNumber: values.get("roomNumber"),
+              description: values.get("description")
+            })
+          });
+          showRequest(createdResult, request);
+          document.getElementById("reference").value = request.reference;
+        } catch (error) {
+          residentError.textContent = `Could not submit request: ${error.message}`;
+        }
+      });
+
+      async function loadRequests() {
+        staffError.textContent = "";
+        requestList.replaceChildren();
+        try {
+          const result = await api("/api/requests");
+          if (result.requests.length === 0) {
+            const empty = document.createElement("li");
+            empty.textContent = "No requests have been submitted.";
+            requestList.append(empty);
+            return;
+          }
+          for (const request of result.requests) {
+            const item = document.createElement("li");
+            const details = document.createElement("p");
+            details.textContent = `${request.reference} — ${request.status} — ${request.hostelBlock}, room ${request.roomNumber}: ${request.description}`;
+            item.append(details);
+            if (request.status !== "Resolved") {
+              const nextStatus = request.status === "Received" ? "In Progress" : "Resolved";
+              const updateButton = document.createElement("button");
+              updateButton.type = "button";
+              updateButton.textContent = `Advance to ${nextStatus}`;
+              updateButton.addEventListener("click", async () => {
+                staffError.textContent = "";
+                try {
+                  await api(`/api/requests/${encodeURIComponent(request.reference)}/status`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: nextStatus })
+                  });
+                  await loadRequests();
+                } catch (error) {
+                  staffError.textContent = `Could not update ${request.reference}: ${error.message}`;
+                }
+              });
+              item.append(updateButton);
+            }
+            requestList.append(item);
+          }
+        } catch (error) {
+          staffError.textContent = `Could not load requests: ${error.message}`;
+        }
+      }
+
+      staffLoad.addEventListener("click", loadRequests);
+
+      lookupForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        lookupError.textContent = "";
+        lookupResult.textContent = "";
+        const reference = document.getElementById("reference").value.trim();
+        try {
+          const request = await api(`/api/requests/${encodeURIComponent(reference)}`);
+          showRequest(lookupResult, request);
+        } catch (error) {
+          lookupError.textContent = `Could not look up request: ${error.message}`;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

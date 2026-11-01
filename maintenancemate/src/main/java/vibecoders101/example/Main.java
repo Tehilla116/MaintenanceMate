@@ -66,6 +66,17 @@ public class Main {
                 error(context, 500, "INTERNAL_ERROR", "An unexpected error occurred.", Map.of());
             });
 
+            config.routes.get("/", context -> {
+                try (var page = Main.class.getResourceAsStream("/vibecoders101/example/index.html")) {
+                    if (page == null) {
+                        context.status(500).result("Browser workflow page is unavailable.");
+                        return;
+                    }
+                    context.contentType("text/html; charset=utf-8").result(page.readAllBytes());
+                } catch (java.io.IOException exception) {
+                    throw new java.io.UncheckedIOException(exception);
+                }
+            });
             config.routes.get("/api/health", context -> {
                 service.checkStorageHealth();
                 context.json(Map.of("status", "ok"));
