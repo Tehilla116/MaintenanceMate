@@ -2,6 +2,7 @@ package vibecoders101.example.repository;
 
 import vibecoders101.example.domain.MaintenanceRequest;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,4 +12,8 @@ public interface RequestRepository {
     Optional<MaintenanceRequest> findByReference(String reference);
 
     List<MaintenanceRequest> list();
+
+    boolean updateStatus(String reference, String expectedCurrentStatus, String newStatus, Instant updatedAt);
+
+    boolean checkHealth();
 }
