@@ -42,6 +42,21 @@ class BrowserWorkflowTest {
     }
 
     @Test
+    void browserWorkflowPageLinksItsThreePhasesInSequence() {
+        JavalinTest.test(app(temporaryDirectory.resolve("phases.db")), (server, client) -> {
+            var response = client.get("/");
+
+            assertEquals(200, response.code());
+            String page = response.body().string();
+            assertTrue(page.contains("<nav class=\"workflow-nav\" aria-label=\"Demo workflow\">"));
+            int submit = page.indexOf("href=\"#resident-heading\"");
+            int staff = page.indexOf("href=\"#staff-heading\"");
+            int lookup = page.indexOf("href=\"#lookup-heading\"");
+            assertTrue(submit >= 0 && submit < staff && staff < lookup);
+        });
+    }
+
+    @Test
     void browserWorkflowUsesApiAndPersistsRequestsAcrossApplicationRestart() {
         Path database = temporaryDirectory.resolve("workflow.db");
         AtomicReference<String> reference = new AtomicReference<>();
