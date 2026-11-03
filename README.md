@@ -2,9 +2,9 @@
 
 Maintenance Mate is a local classroom demo of a hostel maintenance-request workflow: residents submit repair requests, demo staff advance their status, and residents look up a request by reference. It uses synthetic data only. The six core types are `User`, `Resident`, `MaintenanceStaff`, `MaintenanceRequest`, `RequestService`, and `RequestRepository` (the storage interface).
 
-## Backend API (Java 17, Javalin 7)
+## Backend API (Java 25, Javalin 7)
 
-Use a JDK 17 or newer and Maven. The Maven build targets Java 17. Run these commands from the repository root:
+Use a JDK 25 or newer and Maven. The Maven build targets Java 25. Run these commands from the repository root:
 
 ```sh
 mvn -f maintenancemate/pom.xml clean test
