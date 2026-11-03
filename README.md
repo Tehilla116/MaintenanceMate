@@ -1,16 +1,23 @@
 # Maintenance Mate
 
+Maintenance Mate is a local classroom demo of a hostel maintenance-request workflow: residents submit repair requests, demo staff advance their status, and residents look up a request by reference. It uses synthetic data only. The six core types are `User`, `Resident`, `MaintenanceStaff`, `MaintenanceRequest`, `RequestService`, and `RequestRepository` (the storage interface).
+
 ## Backend API (Java 17, Javalin 7)
 
-Run the backend from the repository root:
+Use a JDK 17 or newer and Maven. The Maven build targets Java 17. Run these commands from the repository root:
 
 ```sh
+mvn -f maintenancemate/pom.xml clean test
 mvn -f maintenancemate/pom.xml test
 mvn -f maintenancemate/pom.xml package
 mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
 ```
 
-The application listens on port `7070` by default. Set `-Dport=8080` before the exec goal to select another port. The application creates `./data/maintenancemate.db` on startup and persists requests in SQLite. Do not add real personal data; this is a local classroom demonstration.
+`clean test` removes previous build output and runs the test suite. `package` builds `maintenancemate/target/maintenancemate-1.0-SNAPSHOT.jar`, including the browser page. The last command starts the app; press Ctrl+C in that terminal to stop it. The application listens on port `7070` by default. Set `-Dport=8080` before the exec goal to select another port. The application creates `./data/maintenancemate.db` on startup, relative to its working directory, and persists requests in SQLite. Do not add real personal data; this is a local classroom demonstration.
+
+### Clean demo and persistence restart
+
+For a clean demo, use a fresh clone or isolated worktree so its `./data/maintenancemate.db` is separate from any existing local data. From that clone's repository root, run `mvn -f maintenancemate/pom.xml clean test`, then `mvn -f maintenancemate/pom.xml package`, then start the app with the run command above. Open `http://localhost:7070/` and submit a synthetic request. Save its displayed reference, stop the app with Ctrl+C, start it again with the same run command from the same clone, and look up that reference. The saved request and its status should still be present. Never copy a database containing real-user information into a demo clone.
 
 ### Browser workflow demo
 
