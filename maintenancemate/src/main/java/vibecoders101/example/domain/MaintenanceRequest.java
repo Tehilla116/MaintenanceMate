@@ -18,6 +18,11 @@ public final class MaintenanceRequest {
 
     public MaintenanceRequest(String reference, Resident resident, String description,
                               MaintenanceStaff assignedStaff, Instant createdAt) {
+        this(reference, resident, description, assignedStaff, "Received", createdAt, createdAt);
+    }
+
+    private MaintenanceRequest(String reference, Resident resident, String description,
+                               MaintenanceStaff assignedStaff, String status, Instant createdAt, Instant updatedAt) {
         if (reference == null || !REFERENCE_PATTERN.matcher(reference).matches()) {
             throw new IllegalArgumentException("reference must use MM- followed by 12 uppercase hexadecimal characters");
         }
@@ -25,46 +30,29 @@ public final class MaintenanceRequest {
         this.resident = Objects.requireNonNull(resident, "resident is required");
         this.description = User.requireText(description, "description", 1, 1000);
         this.assignedStaff = assignedStaff;
+        this.status = requireStatus(status);
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt is required");
-        this.status = "Received";
-        this.updatedAt = createdAt;
+        this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt is required");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("updatedAt cannot be before createdAt");
+        }
     }
 
-    public String getReference() {
-        return reference;
+    public static MaintenanceRequest restore(String reference, Resident resident, String description,
+                                             MaintenanceStaff assignedStaff, String status,
+                                             Instant createdAt, Instant updatedAt) {
+        return new MaintenanceRequest(reference, resident, description, assignedStaff, status, createdAt, updatedAt);
     }
 
-    public Resident getResident() {
-        return resident;
-    }
-
-    public String getHostelBlock() {
-        return resident.getHostelBlock();
-    }
-
-    public String getRoomNumber() {
-        return resident.getRoomNumber();
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public MaintenanceStaff getAssignedStaff() {
-        return assignedStaff;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+    public String getReference() { return reference; }
+    public Resident getResident() { return resident; }
+    public String getHostelBlock() { return resident.getHostelBlock(); }
+    public String getRoomNumber() { return resident.getRoomNumber(); }
+    public String getDescription() { return description; }
+    public MaintenanceStaff getAssignedStaff() { return assignedStaff; }
+    public String getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     public void advanceStatus(String nextStatus, Instant now) {
         int currentIndex = indexOf(status);
@@ -79,11 +67,16 @@ public final class MaintenanceRequest {
         updatedAt = nextUpdatedAt;
     }
 
+    private static String requireStatus(String status) {
+        if (indexOf(status) < 0) {
+            throw new IllegalArgumentException("status is not recognized");
+        }
+        return status;
+    }
+
     private static int indexOf(String value) {
         for (int index = 0; index < STATUSES.length; index++) {
-            if (STATUSES[index].equals(value)) {
-                return index;
-            }
+            if (STATUSES[index].equals(value)) return index;
         }
         return -1;
     }

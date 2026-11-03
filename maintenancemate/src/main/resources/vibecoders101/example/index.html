@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Local synthetic-data workflow demo for Maintenance Mate">
+  <title>Maintenance Mate — local demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #17252f;
+      background: #f2f5f7;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      --surface: #fff;
+      --surface-muted: #f7f9fa;
+      --ink: #17252f;
+      --muted: #4c5d68;
+      --line: #d3dde3;
+      --line-strong: #9babb5;
+      --teal: #125c77;
+      --teal-hover: #0d4b62;
+      --focus: #9a6500;
+      --danger: #9d2525;
+      --success: #23613d;
+    }
+    * { box-sizing: border-box; }
+    body { max-width: 1120px; margin: 0 auto; padding: 1.25rem clamp(1rem, 3vw, 2rem) 3rem; }
+    .page-header { background: var(--surface); border: 1px solid var(--line); border-radius: .75rem; padding: 1.5rem clamp(1.25rem, 3vw, 2rem); margin: 0 0 1.25rem; }
+    h1, h2 { line-height: 1.25; text-wrap: balance; }
+    h1 { margin: 0; font-size: 1.75rem; letter-spacing: -.025em; }
+    .page-header p { max-width: 72ch; margin: .5rem 0 0; color: var(--muted); }
+    main { display: grid; gap: 1rem; }
+    .workflow-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0 0 .25rem; }
+    .workflow-nav a { display: flex; align-items: center; gap: .65rem; min-height: 3rem; padding: .6rem .75rem; color: var(--muted); text-decoration: none; font-weight: 650; border-bottom: 2px solid var(--line-strong); }
+    .workflow-nav a:hover { color: var(--teal-hover); border-color: var(--teal); }
+    .workflow-nav a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    .workflow-step { display: grid; place-items: center; flex: 0 0 1.65rem; width: 1.65rem; height: 1.65rem; border: 1px solid var(--line-strong); border-radius: 50%; font-size: .8125rem; font-variant-numeric: tabular-nums; }
+    section { display: grid; grid-template-columns: minmax(12rem, .8fr) minmax(0, 1.5fr); gap: 1.5rem; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: .75rem; padding: 1.5rem clamp(1.25rem, 3vw, 2rem); scroll-margin-top: 1rem; }
+    h2 { margin: .15rem 0 0; font-size: 1.2rem; letter-spacing: -.012em; }
+    .phase-content { min-width: 0; }
+    .phase-content > p:first-child { margin-top: 0; color: var(--muted); }
+    .phase-content > p:last-child { margin-bottom: 0; }
+    .workflow-nav + section { margin-top: -.25rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1rem; }
+    .field { min-width: 0; }
+    .field--wide { grid-column: 1 / -1; }
+    label { display: block; font-weight: 650; margin: 0 0 .3rem; }
+    input, textarea, button { font: inherit; }
+    input, textarea { display: block; width: 100%; min-height: 2.75rem; padding: .65rem .75rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: .4rem; }
+    input::placeholder, textarea::placeholder { color: #566874; opacity: 1; }
+    input:focus-visible, textarea:focus-visible { border-color: var(--teal); }
+    textarea { min-height: 6.5rem; resize: vertical; }
+    button { min-height: 2.75rem; margin-top: .9rem; padding: .55rem .95rem; border: 1px solid transparent; border-radius: .4rem; background: var(--teal); color: #fff; font-weight: 650; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+    button:hover:not(:disabled) { background: var(--teal-hover); }
+    button:active:not(:disabled) { background: #093f54; }
+    button:disabled { background: #647681; cursor: wait; }
+    .notice { margin: .75rem 0 0; overflow-wrap: anywhere; }
+    .notice:empty { display: none; }
+    .error { color: var(--danger); font-weight: 650; }
+    .success { color: var(--success); font-weight: 600; }
+    .request-list { list-style: none; margin: .75rem 0 0; padding: 0; }
+    .request-list li { border-top: 1px solid var(--line); padding: .8rem 0; overflow-wrap: anywhere; }
+    .request-list li:first-child { border-top: 0; padding-top: 0; }
+    .request-list p { margin: 0; }
+    .request-list button { margin-top: .55rem; }
+    ::selection { color: #10252f; background: #cce5ed; }
+    @media (max-width: 700px) {
+      body { padding-top: .75rem; }
+      .page-header { padding: 1.25rem; }
+      section { grid-template-columns: minmax(0, 1fr); gap: .8rem; padding: 1.25rem; }
+      .workflow-nav { gap: .35rem; }
+      .workflow-nav a { align-items: flex-start; gap: .4rem; padding: .5rem .4rem; font-size: .9rem; }
+    }
+    @media (max-width: 420px) {
+      .form-grid { grid-template-columns: minmax(0, 1fr); }
+      .field--wide { grid-column: auto; }
+      .workflow-nav a { flex-direction: column; gap: .3rem; font-size: .8125rem; line-height: 1.3; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Maintenance Mate</h1>
+    <p>Local classroom workflow demo. Use synthetic examples only. This page and API have no login, authentication, or authorization.</p>
+  </header>
+
+  <main>
+    <nav class="workflow-nav" aria-label="Demo workflow">
+      <a href="#resident-heading"><span class="workflow-step" aria-hidden="true">1</span><span>Submit request</span></a>
+      <a href="#staff-heading"><span class="workflow-step" aria-hidden="true">2</span><span>Staff status</span></a>
+      <a href="#lookup-heading"><span class="workflow-step" aria-hidden="true">3</span><span>Reference lookup</span></a>
+    </nav>
+
+    <section aria-labelledby="resident-heading">
+      <h2 id="resident-heading">Demo resident: submit a request</h2>
+      <div class="phase-content">
+        <form id="resident-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="hostel-block">Hostel block</label>
+              <input id="hostel-block" name="hostelBlock" required maxlength="100" autocomplete="off" placeholder="Example Hall, Block C">
+            </div>
+            <div class="field">
+              <label for="room-number">Room number</label>
+              <input id="room-number" name="roomNumber" required maxlength="30" autocomplete="off" placeholder="C-12">
+            </div>
+            <div class="field field--wide">
+              <label for="description">What needs maintenance?</label>
+              <textarea id="description" name="description" required maxlength="1000" placeholder="Example: the sink tap is leaking."></textarea>
+            </div>
+          </div>
+          <button type="submit">Submit request</button>
+        </form>
+        <p id="resident-error" class="notice error" role="alert"></p>
+        <p id="created-result" class="notice success" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section aria-labelledby="staff-heading">
+      <h2 id="staff-heading">Demo maintenance staff: requests</h2>
+      <div class="phase-content">
+        <p>Load the saved request list, then advance a request one allowed status at a time.</p>
+        <button id="staff-load" type="button">Load requests</button>
+        <p id="staff-error" class="notice error" role="alert"></p>
+        <ul id="request-list" class="request-list" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <section aria-labelledby="lookup-heading">
+      <h2 id="lookup-heading">Demo resident: look up by reference</h2>
+      <div class="phase-content">
+        <form id="lookup-form">
+          <label for="reference">Request reference</label>
+          <input id="reference" name="reference" required autocomplete="off" placeholder="MM-012345ABCDEF">
+          <button type="submit">Look up request</button>
+        </form>
+        <p id="lookup-error" class="notice error" role="alert"></p>
+        <p id="lookup-result" class="notice" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const residentForm = document.getElementById("resident-form");
+      const residentError = document.getElementById("resident-error");
+      const createdResult = document.getElementById("created-result");
+      const staffLoad = document.getElementById("staff-load");
+      const staffError = document.getElementById("staff-error");
+      const requestList = document.getElementById("request-list");
+      const lookupForm = document.getElementById("lookup-form");
+      const lookupError = document.getElementById("lookup-error");
+      const lookupResult = document.getElementById("lookup-result");
+
+      async function api(path, options) {
+        const response = await fetch(path, options);
+        const body = await response.json();
+        if (!response.ok) {
+          const apiError = body && body.error;
+          const message = apiError && apiError.message ? apiError.message : `Request failed (${response.status}).`;
+          const fields = apiError && apiError.details && apiError.details.fields;
+          const fieldMessage = fields && Object.entries(fields).map(([field, detail]) => `${field}: ${detail}`).join("; ");
+          throw new Error(fieldMessage ? `${message} ${fieldMessage}` : message);
+        }
+        return body;
+      }
+
+      async function duringRequest(button, busyLabel, operation) {
+        const label = button.textContent;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        button.textContent = busyLabel;
+        try {
+          return await operation();
+        } finally {
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
+          button.textContent = label;
+        }
+      }
+
+      function showRequest(target, request) {
+        target.textContent = `Reference: ${request.reference} — Status: ${request.status}`;
+      }
+
+      residentForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        residentError.textContent = "";
+        createdResult.textContent = "";
+        const values = new FormData(residentForm);
+        const submitButton = residentForm.querySelector("button[type=submit]");
+        await duringRequest(submitButton, "Submitting…", async () => {
+          try {
+            const request = await api("/api/requests", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                hostelBlock: values.get("hostelBlock"),
+                roomNumber: values.get("roomNumber"),
+                description: values.get("description")
+              })
+            });
+            showRequest(createdResult, request);
+            document.getElementById("reference").value = request.reference;
+          } catch (error) {
+            residentError.textContent = `Could not submit request: ${error.message}`;
+          }
+        });
+      });
+
+      async function loadRequests(button = staffLoad) {
+        staffError.textContent = "";
+        requestList.replaceChildren();
+        const loading = document.createElement("li");
+        loading.textContent = "Loading requests…";
+        loading.setAttribute("aria-busy", "true");
+        requestList.append(loading);
+        await duringRequest(button, "Loading…", async () => {
+          try {
+            const result = await api("/api/requests");
+            if (result.requests.length === 0) {
+              const empty = document.createElement("li");
+              empty.textContent = "No requests have been submitted.";
+              requestList.replaceChildren(empty);
+              return;
+            }
+            requestList.replaceChildren();
+            for (const request of result.requests) {
+              const item = document.createElement("li");
+              const details = document.createElement("p");
+              details.textContent = `${request.reference} — ${request.status} — ${request.hostelBlock}, room ${request.roomNumber}: ${request.description}`;
+              item.append(details);
+              if (request.status !== "Resolved") {
+                const nextStatus = request.status === "Received" ? "In Progress" : "Resolved";
+                const updateButton = document.createElement("button");
+                updateButton.type = "button";
+                updateButton.textContent = `Advance to ${nextStatus}`;
+                updateButton.addEventListener("click", async () => {
+                  staffError.textContent = "";
+                  await duringRequest(updateButton, "Updating…", async () => {
+                    try {
+                      await api(`/api/requests/${encodeURIComponent(request.reference)}/status`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: nextStatus })
+                      });
+                      await loadRequests(updateButton);
+                    } catch (error) {
+                      staffError.textContent = `Could not update ${request.reference}: ${error.message}`;
+                    }
+                  });
+                });
+                item.append(updateButton);
+              }
+              requestList.append(item);
+            }
+          } catch (error) {
+            requestList.replaceChildren();
+            staffError.textContent = `Could not load requests: ${error.message}`;
+          }
+        });
+      }
+
+      staffLoad.addEventListener("click", () => loadRequests());
+
+      lookupForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        lookupError.textContent = "";
+        lookupResult.textContent = "";
+        const reference = document.getElementById("reference").value.trim();
+        const lookupButton = lookupForm.querySelector("button[type=submit]");
+        await duringRequest(lookupButton, "Looking up…", async () => {
+          try {
+            const request = await api(`/api/requests/${encodeURIComponent(reference)}`);
+            showRequest(lookupResult, request);
+          } catch (error) {
+            lookupError.textContent = `Could not look up request: ${error.message}`;
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

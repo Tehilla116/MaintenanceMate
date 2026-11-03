@@ -1,20 +1,90 @@
 # Maintenance Mate
 
-## Backend scaffold (Java 17)
+Maintenance Mate is a local classroom demo of a hostel maintenance-request workflow: residents submit repair requests, demo staff advance their status, and residents look up a request by reference. It uses synthetic data only. The six core types are `User`, `Resident`, `MaintenanceStaff`, `MaintenanceRequest`, `RequestService`, and `RequestRepository` (the storage interface).
 
-The minimal Javalin API and domain/service model live under `maintenancemate/`.
+## Backend API (Java 17, Javalin 7)
+
+Use a JDK 17 or newer and Maven. The Maven build targets Java 17. Run these commands from the repository root:
 
 ```sh
-cd maintenancemate
-mvn test
-mvn package
-mvn compile exec:java -Dexec.mainClass=vibecoders101.example.Main
+mvn -f maintenancemate/pom.xml clean test
+mvn -f maintenancemate/pom.xml test
+mvn -f maintenancemate/pom.xml package
+mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
 ```
 
-The app listens on port `7070` by default. Set `-Dport=8080` (for example, `mvn compile exec:java -Dport=8080 -Dexec.mainClass=vibecoders101.example.Main`) to select another port. `GET http://localhost:7070/api/health` returns `{"status":"ok"}`. The health route is exercised with Javalin's test helper on an ephemeral test port.
+`clean test` removes previous build output and runs the test suite. `package` builds `maintenancemate/target/maintenancemate-1.0-SNAPSHOT.jar`, including the browser page. The last command starts the app; press Ctrl+C in that terminal to stop it. The application listens on port `7070` by default. Set `-Dport=8080` before the exec goal to select another port. The application creates `./data/maintenancemate.db` on startup, relative to its working directory, and persists requests in SQLite. Do not add real personal data; this is a local classroom demonstration.
 
-The scaffold pins Javalin 7.2.4, targets Java 17, and uses JUnit 5.12.2. It currently stores requests in memory only; SQLite persistence and the remaining request API routes are later project tasks. All example identities are synthetic, and `User.canAccess` demonstrates polymorphic dispatch only—it is not authentication or an API security boundary.
+### Clean demo and persistence restart
 
-## Planned day-2 lead / partner split
+For a clean demo, use a fresh clone or isolated worktree so its `./data/maintenancemate.db` is separate from any existing local data. From that clone's repository root, run `mvn -f maintenancemate/pom.xml clean test`, then `mvn -f maintenancemate/pom.xml package`, then start the app with the run command above. Open `http://localhost:7070/` and submit a synthetic request. Save its displayed reference, stop the app with Ctrl+C, start it again with the same run command from the same clone, and look up that reference. The saved request and its status should still be present. Never copy a database containing real-user information into a demo clone.
 
-The existing team plan assigns Tehilla Chiwama / Cheela Mulilo to Resident submission fields and validation; Bright Mwansa / Blessings Syansowa to MaintenanceStaff and status behavior; Mwenya Simpungwe / Tehilla Chiwama to RequestService creation, lookup, and exception behavior; Cheela Mulilo / Bright Mwansa to MaintenanceRequest state and controlled updates; and Blessings Syansowa / Mwenya Simpungwe to the polymorphism test. These are the plan's future lead/partner assignments, not a claim that those members authored or reviewed this scaffold commit.
+### Browser workflow demo
+
+Run the existing Maven command from the repository root:
+
+```sh
+mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
+```
+
+Open `http://localhost:7070/`. The page is served by Javalin from the application classpath and offers three plain workflows: submit a synthetic resident request, load the request list and advance status as demo staff, then find a request by its reference. A newly submitted reference is also filled into the lookup form. Status transitions are limited to `Received → In Progress → Resolved`; errors from the API are shown on the page.
+
+The page and API are local demo software only. There is no login, authentication, authorization, or real identity handling. Use synthetic data only. The app persists to `./data/maintenancemate.db`; do not use an existing database with real-user information.
+
+### Beginner walkthrough: one POST request from HTTP to SQLite
+
+Start the application as shown above, then submit a request from the browser page or with `curl`:
+
+```sh
+curl -i -X POST http://localhost:7070/api/requests \
+  -H 'Content-Type: application/json' \
+  -d '{"hostelBlock":"Maple Hostel, Block B","roomNumber":"A-12","description":"The sink tap is leaking."}'
+```
+
+The API returns `201 Created` and JSON shaped like this. The reference is generated for each request, so your value will differ.
+
+```json
+{
+  "reference": "MM-012345ABCDEF",
+  "hostelBlock": "Maple Hostel, Block B",
+  "roomNumber": "A-12",
+  "description": "The sink tap is leaking.",
+  "status": "Received",
+  "assignedStaffId": null,
+  "createdAt": "2026-10-30T09:15:30.123Z",
+  "updatedAt": "2026-10-30T09:15:30.123Z"
+}
+```
+
+Follow the request through the code:
+
+1. `Main` registers `POST /api/requests`. Its `createRequest` method reads the JSON body, rejects unknown or missing fields, and reads the three strings.
+2. `RequestService.create` trims and validates the values, builds a demo `Resident` and a `MaintenanceRequest`, generates a reference, and asks the repository to save the request.
+3. `RequestRepository` is the interface the service depends on. The running app uses `SqliteRequestRepository`, whose `save` method uses a JDBC `PreparedStatement` to insert one row into the `maintenance_requests` table in `./data/maintenancemate.db`. The repository also turns database rows back into objects when reading.
+4. `Main.requestRepresentation` turns the saved object into the JSON response.
+
+The path is: `Main` (HTTP and JSON) -> `RequestService` (application rules) -> `RequestRepository` (storage interface) -> `SqliteRequestRepository` (JDBC and SQL) -> SQLite file.
+
+### OOP concepts in this project
+
+- **Encapsulation**: `MaintenanceRequest`, `Resident`, and `MaintenanceStaff` keep their fields private and expose getters. Their constructors validate input.
+- **Abstraction**: `RequestRepository` is an interface. `RequestService` calls methods such as `save` and `findByReference` without knowing whether storage is in memory or SQLite.
+- **Inheritance**: `Resident` and `MaintenanceStaff` extend the abstract `User` class and reuse its user ID and display-name behavior.
+- **Polymorphism**: `Resident` and `MaintenanceStaff` override `User.canAccess` differently. `RequestService` can also work with either `InMemoryRequestRepository` or `SqliteRequestRepository` through the same interface.
+- **Composition and dependency injection**: `RequestService` receives a `RequestRepository` and a `Clock` in its constructor instead of creating them itself.
+- **Custom exceptions**: `InvalidRequestException`, `RequestNotFoundException`, and the other exception classes describe failures that `Main` maps to HTTP error responses.
+
+This is a classroom demo, not an authentication system. The API has no login or authorization and does not verify who sent a request. The browser page writes API values with `textContent`, so returned text is displayed as text instead of being executed as HTML.
+
+### Routes
+
+- `GET /` — serves the browser workflow page as `text/html` from the Java classpath.
+- `POST /api/requests` — JSON `{ "hostelBlock": "Maple Hostel, Block B", "roomNumber": "A-12", "description": "The sink tap is leaking." }`; returns `201` and the complete request representation.
+- `GET /api/requests` — returns `{ "requests": [...], "count": n }`.
+- `GET /api/requests/{reference}` — returns one request, or `404` if a valid reference is absent.
+- `PUT /api/requests/{reference}/status` — JSON `{ "status": "In Progress" }`; only `Received → In Progress → Resolved` is accepted.
+- `GET /api/health` — returns `{ "status": "ok" }` only when SQLite can be queried.
+
+Errors use `{ "error": { "code": "...", "message": "...", "details": {} } }`. Validation/malformed JSON returns `400`, absent requests `404`, invalid transitions `409`, unavailable storage `503`, and unexpected errors `500`.
+
+All identities are synthetic. `User.canAccess` is a polymorphism example only: this API has no authentication or authorization boundary and is not a production privacy/security system.

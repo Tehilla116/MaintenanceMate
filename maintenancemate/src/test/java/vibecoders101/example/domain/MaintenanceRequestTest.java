@@ -48,4 +48,14 @@ class MaintenanceRequestTest {
         assertThrows(IllegalArgumentException.class,
                 () -> request.advanceStatus("Resolved", progressedAt.plusSeconds(60)));
     }
+    @Test
+    void statusUpdateRejectsEarlierTimestampAndLeavesRequestUnchanged() {
+    var request = new MaintenanceRequest("MM-000000000001", resident, "Leaking tap", null, createdAt);
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+            () -> request.advanceStatus("In Progress", createdAt.minusSeconds(1)));
+
+    assertEquals("Received", request.getStatus());
+    assertEquals(createdAt, request.getUpdatedAt());
+    }
 }
