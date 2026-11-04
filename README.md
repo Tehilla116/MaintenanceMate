@@ -88,3 +88,13 @@ This is a classroom demo, not an authentication system. The API has no login or 
 Errors use `{ "error": { "code": "...", "message": "...", "details": {} } }`. Validation/malformed JSON returns `400`, absent requests `404`, invalid transitions `409`, unavailable storage `503`, and unexpected errors `500`.
 
 All identities are synthetic. `User.canAccess` is a polymorphism example only: this API has no authentication or authorization boundary and is not a production privacy/security system.
+
+## Group Members
+
+| Full Name | Student Number |
+|---|---|
+| Tehilla Chiwama | 2410014 |
+| Bright Mwansa | 2410010 |
+| Mwenya Simpungwe | 2410013 |
+| Cheela Mulilo | 2410032 |
+| Blessings Syansowa | 2421035 |
