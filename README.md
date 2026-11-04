@@ -2,6 +2,38 @@
 
 Maintenance Mate is a local classroom demo of a hostel maintenance-request workflow: residents submit repair requests, demo staff advance their status, and residents look up a request by reference. It uses synthetic data only. The six core types are `User`, `Resident`, `MaintenanceStaff`, `MaintenanceRequest`, `RequestService`, and `RequestRepository` (the storage interface).
 
+## THE PROBLEM
+
+Residents can find it difficult to report hostel maintenance issues and follow their progress, while maintenance staff need a clear way to receive and manage those requests. Maintenance Mate gives hostel residents and maintenance staff a simple shared workflow for submitting, tracking, and updating repair requests.
+
+## HOW TO RUN
+
+1. Install JDK 25 or newer and Maven.
+2. Open a terminal at the repository root (the folder containing `maintenancemate/`).
+3. Optionally, run the tests before starting the app:
+
+   ```sh
+   mvn -f maintenancemate/pom.xml clean test
+   ```
+
+4. Start the app from the repository root:
+
+   ```sh
+   mvn -f maintenancemate/pom.xml compile exec:java -Dexec.mainClass=vibecoders101.example.Main
+   ```
+
+5. Keep that terminal open and visit `http://localhost:7070/` in your browser. The Java app serves the page itself; you do not need to start a separate frontend server.
+6. Press Ctrl+C in the terminal to stop the app.
+
+## YOUR CLASSES
+
+- `User` — Base class for a user, holding shared user ID and display name details.
+- `Resident` — User type with hostel and room details that can be associated with a maintenance request.
+- `MaintenanceStaff` — User type representing staff assigned to handle maintenance requests.
+- `MaintenanceRequest` — Represents a reported issue, its resident, reference, status, and timestamps.
+- `RequestService` — Applies request rules, including validation, request creation and lookup, and status updates.
+- `RequestRepository` — Interface (storage contract) defining how requests are saved, found, listed, and updated; repository implementations provide the storage.
+
 ## Backend API (Java 25, Javalin 7)
 
 Use a JDK 25 or newer and Maven. The Maven build targets Java 25. Run these commands from the repository root:
